@@ -1,0 +1,72 @@
+services:
+  proxy:
+    image: nginx:alpine
+    container_name: skills-exchange-proxy
+    ports:
+      - "8080:80"
+    volumes:
+      - ./docker/proxy.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+      - web
+
+  app:
+    build: .
+    container_name: skills-exchange-api
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_HOST: mysql
+      DB_NAME: ${DB_NAME:-skills_exchange}
+      DB_USER: ${DB_USER:-skills_user}
+      DB_PASS: ${DB_PASS:-skills_pass}
+
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    container_name: skills-exchange-web
+    volumes:
+      - .:/var/www/html
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_HOST: mysql
+      DB_NAME: ${DB_NAME:-skills_exchange}
+      DB_USER: ${DB_USER:-skills_user}
+      DB_PASS: ${DB_PASS:-skills_pass}
+
+  mysql:
+    image: mysql:5.7
+    container_name: skills-exchange-mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpass}
+      MYSQL_DATABASE: ${DB_NAME:-skills_exchange}
+      MYSQL_USER: ${DB_USER:-skills_user}
+      MYSQL_PASSWORD: ${DB_PASS:-skills_pass}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # Ограничиваем потребление памяти через параметры MySQL
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --innodb-buffer-pool-size=256M
+      - --max-connections=50
+      - --performance-schema=OFF
+      - --table-open-cache=400
+      - --thread-cache-size=50
+
+volumes:
+  mysql_data:

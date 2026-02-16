@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Сообщения — Обмен навыками</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <nav class="nav">
+    <a href="users.html">Пользователи</a>
+    <a href="me.html">Мой профиль</a>
+    <a href="messages.html">Сообщения</a>
+    <span class="right"><a href="#" id="logout">Выйти</a></span>
+  </nav>
+  <div class="container">
+    <div id="err" class="alert alert-danger" style="display: none;"></div>
+    <div class="messages-layout">
+      <div class="conv-list" id="convList">
+        <div class="empty" id="convEmpty">Загрузка диалогов…</div>
+      </div>
+      <div class="chat-area">
+        <div id="chatPlaceholder" class="empty" style="padding: 2rem;">Выберите диалог или начните переписку со страницы профиля пользователя.</div>
+        <div id="chatBox" style="display: none;">
+          <div class="chat-messages" id="chatMessages"></div>
+          <form class="chat-form" id="chatForm">
+            <input type="text" id="msgInput" placeholder="Сообщение..." autocomplete="off">
+            <button type="submit" class="btn">Отправить</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="js/api.js"></script>
+  <script>
+    if (!api.getToken()) location.replace('login.html');
+    document.getElementById('logout').addEventListener('click', (e) => {
+      e.preventDefault();
+      api.auth.logout().catch(() => {});
+      api.setToken(null);
+      location.replace('login.html');
+    });
+
+    function escapeHtml(s) {
+      if (s == null) return '';
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    const params = new URLSearchParams(location.search);
+    let currentUserId = params.get('with') ? parseInt(params.get('with'), 10) : null;
+    let convos = [];
+
+    const convList = document.getElementById('convList');
+    const convEmpty = document.getElementById('convEmpty');
+    const chatPlaceholder = document.getElementById('chatPlaceholder');
+    const chatBox = document.getElementById('chatBox');
+    const chatMessages = document.getElementById('chatMessages');
+    const chatForm = document.getElementById('chatForm');
+    const msgInput = document.getElementById('msgInput');
+    const err = document.getElementById('err');
+
+    async function loadConversations() {
+      try {
+        const r = await api.messages.list();
+        convos = r.conversations || [];
+        convEmpty.style.display = convos.length ? 'none' : 'block';
+        convEmpty.textContent = convos.length ? '' : 'Нет диалогов';
+        const listHtml = convos.map(c => {
+          const name = c.full_name || c.username || 'Без имени';
+          const avatar = c.avatar_url ? `<img class="avatar" src="${escapeHtml(c.avatar_url)}" alt="">` : '<div class="avatar"></div>';
+          const unread = (c.unread && parseInt(c.unread, 10)) ? ' <span style="background:#0d6efd;color:#fff;border-radius:50%;padding:0 6px;font-size:11px;">' + c.unread + '</span>' : '';
+          return '<div class="conv-item' + (currentUserId === c.id ? ' active' : '') + '" data-id="' + c.id + '">' + avatar + '<div><div class="name">' + escapeHtml(name) + unread + '</div><div class="username" style="font-size:12px;color:#666">' + (c.last_message ? escapeHtml(c.last_message.substring(0, 40)) + (c.last_message.length > 40 ? '…' : '') : '') + '</div></div></div>';
+        }).join('');
+        convList.innerHTML = listHtml || convEmpty.outerHTML;
+        convList.querySelectorAll('.conv-item').forEach(el => {
+          el.addEventListener('click', () => {
+            currentUserId = parseInt(el.dataset.id, 10);
+            history.replaceState(null, '', 'messages.html?with=' + currentUserId);
+            convList.querySelectorAll('.conv-item').forEach(x => x.classList.remove('active'));
+            el.classList.add('active');
+            loadChat();
+          });
+        });
+        if (currentUserId) loadChat();
+      } catch (x) {
+        if (x.status === 401) { api.setToken(null); location.replace('login.html'); return; }
+        err.textContent = (x.data && x.data.error) || 'Ошибка загрузки';
+        err.style.display = 'block';
+      }
+    }
+
+    async function loadChat() {
+      if (!currentUserId) return;
+      chatPlaceholder.style.display = 'none';
+      chatBox.style.display = 'flex';
+      chatBox.style.flexDirection = 'column';
+      try {
+        const r = await api.messages.with(currentUserId);
+        const messages = r.messages || [];
+        const me = (await api.users.me()).user.id;
+        chatMessages.innerHTML = messages.map(m => {
+          const isMine = m.sender_id === me;
+          const time = m.created_at ? new Date(m.created_at).toLocaleString('ru') : '';
+          return '<div class="chat-msg ' + (isMine ? 'mine' : '') + '"><div class="bubble">' + escapeHtml(m.content) + '</div><div class="time">' + time + '</div></div>';
+        }).join('');
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      } catch (x) {
+        chatMessages.innerHTML = '<div class="empty">Не удалось загрузить сообщения</div>';
+      }
+    }
+
+    chatForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const text = msgInput.value.trim();
+      if (!text || !currentUserId) return;
+      err.style.display = 'none';
+      try {
+        await api.messages.send(currentUserId, text);
+        msgInput.value = '';
+        loadChat();
+        loadConversations();
+      } catch (x) {
+        err.textContent = (x.data && x.data.error) || 'Ошибка отправки';
+        err.style.display = 'block';
+      }
+    });
+
+    if (currentUserId) {
+      loadConversations().then(() => loadChat());
+    } else {
+      loadConversations();
+    }
+  </script>
+</body>
+</html>

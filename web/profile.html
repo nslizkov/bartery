@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Профиль — Обмен навыками</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <nav class="nav">
+    <a href="users.html">Пользователи</a>
+    <a href="me.html">Мой профиль</a>
+    <a href="messages.html">Сообщения</a>
+    <span class="right"><a href="#" id="logout">Выйти</a></span>
+  </nav>
+  <div class="container">
+    <div id="err" class="alert alert-danger" style="display: none;"></div>
+    <div id="profile" style="display: none;"></div>
+    <div id="loading">Загрузка…</div>
+  </div>
+  <script src="js/api.js"></script>
+  <script>
+    if (!api.getToken()) location.replace('login.html');
+    document.getElementById('logout').addEventListener('click', (e) => {
+      e.preventDefault();
+      api.auth.logout().catch(() => {});
+      api.setToken(null);
+      location.replace('login.html');
+    });
+
+    function escapeHtml(s) {
+      if (s == null) return '';
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    const params = new URLSearchParams(location.search);
+    const userId = params.get('id');
+    if (!userId) { document.getElementById('loading').textContent = 'Не указан пользователь'; }
+
+    async function load() {
+      const err = document.getElementById('err');
+      const loading = document.getElementById('loading');
+      const profileEl = document.getElementById('profile');
+      try {
+        const r = await api.users.get(userId);
+        const u = r.user;
+        const name = u.full_name || u.username || 'Без имени';
+        const avatar = u.avatar_url ? `<img class="profile-avatar" src="${escapeHtml(u.avatar_url)}" alt="">` : '<div class="profile-avatar"></div>';
+        let skillsHtml = '';
+        if (u.skills && u.skills.length) {
+          skillsHtml = '<h3>Навыки</h3><div>' + u.skills.map(s => 
+            '<span class="skill-tag ' + s.type + '">' + escapeHtml(s.skill_name) + ' (' + (s.type === 'teach' ? 'учу' : 'хочу научиться') + ')</span>'
+          ).join(' ') + '</div>';
+        }
+        profileEl.innerHTML = `
+          <div class="card">
+            <div class="profile-header">
+              ${avatar}
+              <div class="profile-meta">
+                <h1>${escapeHtml(name)}</h1>
+                <p style="color:#666">@${escapeHtml(u.username)}</p>
+                ${u.bio ? '<p>' + escapeHtml(u.bio) + '</p>' : ''}
+                <p>Очков: ${Number(u.points) || 0}</p>
+                <p style="margin-top:1rem;"><a href="messages.html?with=${u.id}" class="btn">Написать</a></p>
+              </div>
+            </div>
+            ${skillsHtml}
+          </div>
+        `;
+        loading.style.display = 'none';
+        profileEl.style.display = 'block';
+      } catch (x) {
+        if (x.status === 401) { api.setToken(null); location.replace('login.html'); return; }
+        loading.style.display = 'none';
+        err.textContent = (x.data && x.data.error) || 'Пользователь не найден';
+        err.style.display = 'block';
+      }
+    }
+    if (userId) load();
+  </script>
+</body>
+</html>
