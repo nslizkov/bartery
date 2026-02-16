@@ -1,18 +1,17 @@
-FROM php:8.2-fpm-alpine
+FROM php:8.2-apache
 
-RUN apk add --no-cache nginx supervisor
-
-# PHP extensions
 RUN docker-php-ext-install pdo pdo_mysql
 
-# Nginx config (только API)
-COPY docker/nginx-app.conf /etc/nginx/http.d/default.conf
-
-# Supervisor to run nginx + php-fpm
-COPY docker/supervisord.conf /etc/supervisord.conf
+RUN a2enmod rewrite
 
 WORKDIR /var/www/html
 
-EXPOSE 80
+RUN sed -i 's|/var/www/html|/var/www/html/public|g' /etc/apache2/sites-available/000-default.conf
 
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
+RUN echo '<Directory /var/www/html/public>' \
+    '\nAllowOverride All' \
+    '\nRequire all granted' \
+    '\n</Directory>' \
+    >> /etc/apache2/apache2.conf
+
+EXPOSE 80
