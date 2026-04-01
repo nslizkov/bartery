@@ -129,4 +129,10 @@ if ($resource === 'badges') {
     exit;
 }
 
+// User skills
+if ($resource === 'user-skills') {
+    require __DIR__ . '/../src/api/user-skills.php';
+    exit;
+}
+
 jsonResponse(['error' => 'Not found'], 404);

@@ -915,6 +915,86 @@ curl -X POST https://your-domain.com/api/users/me/avatar \
 
 ---
 
+## 9. Навыки пользователей (user_skills)
+
+### GET /api/user-skills
+
+Получить все навыки всех пользователей (содержимое таблицы user_skills).
+
+**Auth:** да
+
+**Ответ 200:**
+```json
+{
+  "user_skills": [
+    {
+      "user_id": 1,
+      "skill_id": 1,
+      "type": "teach",
+      "proficiency_level": 5,
+      "description": null,
+      "created_at": "2025-02-15T12:00:00Z",
+      "username": "ivan",
+      "full_name": "Иван Петров",
+      "avatar_url": null,
+      "skill_name": "Английский",
+      "category_name": "Языки"
+    }
+  ]
+}
+```
+
+**Ошибки:**
+- `401` — `{"error": "Unauthorized"}`
+
+---
+
+### GET /api/user-skills/{userId}
+
+Получить навыки конкретного пользователя. Результаты сортируются по релевантности для текущего авторизованного пользователя:
+
+**Приоритеты сортировки:**
+1. **(+10 баллов)** Целевой пользователь преподаёт то, что текущий хочет изучить (комплементарный обмен)
+2. **(+5 баллов)** Целевой пользователь хочет изучить то, что текущий преподаёт (комплементарный обмен)
+3. **(+2 балла)** Навык относится к той же категории, что и навыки текущего пользователя
+
+**Auth:** да
+
+**Параметры пути:** `userId` — ID пользователя
+
+**Ответ 200:**
+```json
+{
+  "user": {
+    "id": 2,
+    "username": "marie",
+    "full_name": "Мари",
+    "avatar_url": null
+  },
+  "user_skills": [
+    {
+      "user_id": 2,
+      "skill_id": 4,
+      "type": "teach",
+      "proficiency_level": 5,
+      "description": null,
+      "created_at": "2025-02-15T12:00:00Z",
+      "username": "marie",
+      "full_name": "Мари",
+      "avatar_url": null,
+      "skill_name": "Французский",
+      "category_name": "Языки"
+    }
+  ]
+}
+```
+
+**Ошибки:**
+- `401` — `{"error": "Unauthorized"}`
+- `404` — `{"error": "User not found"}`
+
+---
+
 ## Сводная таблица
 
 | Метод | Путь | Auth | Описание |
@@ -944,3 +1024,5 @@ curl -X POST https://your-domain.com/api/users/me/avatar \
 | PATCH | /api/video-calls/{id} | да | Обновить статус звонка |
 | GET | /api/badges | нет | Список бейджей |
 | GET | /api/badges/user/{userId} | нет | Бейджи пользователя |
+| GET | /api/user-skills | да | Все навыки всех пользователей |
+| GET | /api/user-skills/{userId} | да | Навыки конкретного пользователя (с сортировкой по релевантности) |
