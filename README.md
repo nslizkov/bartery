@@ -130,11 +130,16 @@ server/
 | GET | /api/users | ✓ | Список всех пользователей (для веб-версии) |
 | GET | /api/users/me | ✓ | Профиль текущего пользователя |
 | PUT | /api/users/me | ✓ | Обновить профиль |
+| POST | /api/users/me/avatar | ✓ | Загрузить аватарку |
+| DELETE | /api/users/me/avatar | ✓ | Удалить аватарку |
 | GET | /api/users/me/skills | ✓ | Мои навыки |
 | POST | /api/users/me/skills | ✓ | Добавить навык |
 | DELETE | /api/users/me/skills/{id} | ✓ | Удалить навык |
 | GET | /api/users/search?teach=X&learn=Y | - | Поиск партнёров по обмену |
 | GET | /api/users/{id} | - | Публичный профиль |
+| GET | /api/users/{id}/completed-calls-count | - | Количество завершённых видеозвонков |
+
+*Примечание:* эндпоинты профиля пользователя (`/api/users/me`, `/api/users/{id}`) также возвращают поле `completed_calls_count` — количество завершённых видеозвонков.
 
 ### Категории и навыки
 | Метод | Путь | Auth | Описание |

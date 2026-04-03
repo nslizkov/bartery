@@ -21,7 +21,8 @@ if ($id === 'me' && $method === 'GET') {
     $stmt = $db->prepare('
         SELECT u.id, u.username, u.email, u.full_name, u.bio, u.avatar_url, u.role, u.points, u.created_at,
             (SELECT COUNT(*) FROM user_skills WHERE user_id = u.id AND type = "teach") as teach_count,
-            (SELECT COUNT(*) FROM user_skills WHERE user_id = u.id AND type = "learn") as learn_count
+            (SELECT COUNT(*) FROM user_skills WHERE user_id = u.id AND type = "learn") as learn_count,
+            (SELECT COUNT(*) FROM video_calls WHERE (caller_id = u.id OR callee_id = u.id) AND status = "completed") as completed_calls_count
         FROM users u WHERE u.id = ?
     ');
     $stmt->execute([$user['id']]);
@@ -55,22 +56,79 @@ if ($id === 'me' && $sub === 'avatar' && $method === 'POST') {
     if ($file['size'] > 2 * 1024 * 1024) {
         jsonResponse(['error' => 'File too large (max 2MB)'], 400);
     }
+    
+    // Validate image dimensions (min 50x50, max 2000x2000)
+    $imageInfo = getimagesize($file['tmp_name']);
+    if (!$imageInfo) {
+        jsonResponse(['error' => 'Invalid image file'], 400);
+    }
+    [$width, $height] = $imageInfo;
+    if ($width < 50 || $height < 50) {
+        jsonResponse(['error' => 'Image too small (min 50x50 pixels)'], 400);
+    }
+    if ($width > 2000 || $height > 2000) {
+        jsonResponse(['error' => 'Image too large (max 2000x2000 pixels)'], 400);
+    }
+    
     $ext = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif', 'image/webp' => 'webp'][$mime];
     $uploadDir = __DIR__ . '/../../uploads/avatars';
+    
+    // Ensure upload directory exists
     if (!is_dir($uploadDir)) {
-        mkdir($uploadDir, 0755, true);
+        if (!mkdir($uploadDir, 0755, true)) {
+            jsonResponse(['error' => 'Failed to create upload directory'], 500);
+        }
     }
+    
+    // Check if directory is writable
+    if (!is_writable($uploadDir)) {
+        jsonResponse(['error' => 'Upload directory is not writable'], 500);
+    }
+    
     $filename = $user['id'] . '_' . time() . '.' . $ext;
     $path = $uploadDir . '/' . $filename;
+    
     if (!move_uploaded_file($file['tmp_name'], $path)) {
-        jsonResponse(['error' => 'Failed to save file'], 500);
+        $error = error_get_last();
+        jsonResponse(['error' => 'Failed to save file', 'details' => $error['message'] ?? 'Unknown error'], 500);
     }
     $avatarUrl = '/uploads/avatars/' . $filename;
+    
+    // Delete old avatar if exists
+    $stmt = $db->prepare('SELECT avatar_url FROM users WHERE id = ?');
+    $stmt->execute([$user['id']]);
+    $oldAvatar = $stmt->fetchColumn();
+    if ($oldAvatar && $oldAvatar !== $avatarUrl) {
+        $oldPath = __DIR__ . '/../..' . $oldAvatar;
+        if (is_file($oldPath) && strpos($oldAvatar, '/uploads/avatars/') === 0) {
+            @unlink($oldPath);
+        }
+    }
+    
     $stmt = $db->prepare('UPDATE users SET avatar_url = ? WHERE id = ?');
     $stmt->execute([$avatarUrl, $user['id']]);
     $stmt = $db->prepare('SELECT id, username, email, full_name, bio, avatar_url, role, points FROM users WHERE id = ?');
     $stmt->execute([$user['id']]);
     jsonResponse(['user' => $stmt->fetch(), 'avatar_url' => $avatarUrl]);
+}
+
+// DELETE /api/users/me/avatar - delete avatar
+if ($id === 'me' && $sub === 'avatar' && $method === 'DELETE') {
+    $user = requireAuth();
+    $stmt = $db->prepare('SELECT avatar_url FROM users WHERE id = ?');
+    $stmt->execute([$user['id']]);
+    $avatarUrl = $stmt->fetchColumn();
+    if ($avatarUrl) {
+        $path = __DIR__ . '/../..' . $avatarUrl;
+        if (is_file($path) && strpos($avatarUrl, '/uploads/avatars/') === 0) {
+            @unlink($path);
+        }
+    }
+    $stmt = $db->prepare('UPDATE users SET avatar_url = NULL WHERE id = ?');
+    $stmt->execute([$user['id']]);
+    $stmt = $db->prepare('SELECT id, username, email, full_name, bio, avatar_url, role, points FROM users WHERE id = ?');
+    $stmt->execute([$user['id']]);
+    jsonResponse(['user' => $stmt->fetch(), 'message' => 'Avatar deleted']);
 }
 
 // PUT /api/users/me - update profile
@@ -169,11 +227,31 @@ if ($id === 'search' && $method === 'GET') {
     jsonResponse(['users' => $users]);
 }
 
+// GET /api/users/{id}/completed-calls-count - get completed video calls count
+if (is_numeric($id) && $sub === 'completed-calls-count' && $method === 'GET') {
+    $userId = (int) $id;
+    // Check if user exists
+    $stmt = $db->prepare('SELECT id FROM users WHERE id = ? AND is_active = 1');
+    $stmt->execute([$userId]);
+    if (!$stmt->fetch()) {
+        jsonResponse(['error' => 'User not found'], 404);
+    }
+    // Count completed calls where user is caller or callee
+    $stmt = $db->prepare('
+        SELECT COUNT(*) as count FROM video_calls
+        WHERE (caller_id = ? OR callee_id = ?) AND status = "completed"
+    ');
+    $stmt->execute([$userId, $userId]);
+    $result = $stmt->fetch();
+    jsonResponse(['completed_calls_count' => (int)$result['count']]);
+}
+
 // GET /api/users/{id} - public profile
 if (is_numeric($id) && !$sub && $method === 'GET') {
     $userId = (int) $id;
     $stmt = $db->prepare('
-        SELECT u.id, u.username, u.full_name, u.bio, u.avatar_url, u.points, u.created_at
+        SELECT u.id, u.username, u.full_name, u.bio, u.avatar_url, u.points, u.created_at,
+            (SELECT COUNT(*) FROM video_calls WHERE (caller_id = u.id OR callee_id = u.id) AND status = "completed") as completed_calls_count
         FROM users u WHERE u.id = ? AND u.is_active = 1
     ');
     $stmt->execute([$userId]);

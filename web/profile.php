@@ -52,6 +52,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $error = $resp['body']['error'] ?? 'Ошибка загрузки аватара';
         }
+    } elseif ($action === 'delete_avatar') {
+        $resp = apiRequest('DELETE', '/users/me/avatar', null, $token);
+        if ($resp['httpCode'] === 200) {
+            $_SESSION['user'] = $resp['body']['user'];
+            $message = 'Аватар удалён';
+        } else {
+            $error = $resp['body']['error'] ?? 'Ошибка удаления аватара';
+        }
     }
 }
 
@@ -108,13 +116,30 @@ require 'header.php';
         <tr><th>О себе</th><td><?= nl2br(htmlspecialchars($user['bio'] ?? '')) ?></td></tr>
         <tr><th>Аватар</th><td>
             <?php if ($user['avatar_url']): ?>
-                <img src="<?= API_BASE_URL . $user['avatar_url'] ?>" width="100">
-            <?php else: ?> нет <?php endif; ?>
+                <img src="<?= API_BASE_URL . $user['avatar_url'] ?>" width="100"><br>
+                <small><?= htmlspecialchars($user['avatar_url']) ?></small>
+            <?php else: ?>
+                нет
+            <?php endif; ?>
         </td></tr>
         <tr><th>Очки</th><td><?= $user['points'] ?></td></tr>
         <tr><th>Дата регистрации</th><td><?= $user['created_at'] ?></td></tr>
     </table>
-    <p><a href="profile.php?action=edit">Редактировать</a> | <a href="profile.php?action=skills">Управление навыками</a></p>
+    
+    <h3>Загрузить аватар</h3>
+    <form action="profile.php?action=avatar" method="post" enctype="multipart/form-data">
+        <input type="file" name="avatar" accept="image/jpeg,image/png,image/gif,image/webp" required>
+        <button type="submit">Загрузить</button>
+    </form>
+    <p><small>Поддерживаемые форматы: JPEG, PNG, GIF, WebP. Максимальный размер: 2MB</small></p>
+    
+    <?php if ($user['avatar_url']): ?>
+        <form action="profile.php?action=delete_avatar" method="post" style="margin-top: 10px;" onsubmit="return confirm('Удалить аватар? Это действие нельзя отменить.');">
+            <button type="submit" style="background-color: #dc3545; color: white; border: none; padding: 5px 10px; cursor: pointer;">Удалить аватар</button>
+        </form>
+    <?php endif; ?>
+    
+    <p><a href="profile.php?action=edit">Редактировать профиль</a> | <a href="profile.php?action=skills">Управление навыками</a></p>
 
 <?php elseif ($action === 'edit'): ?>
     <h2>Редактирование профиля</h2>

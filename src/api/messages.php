@@ -17,9 +17,9 @@ if (!$id && $method === 'GET') {
             FROM messages WHERE sender_id = ? OR receiver_id = ?
         ) conv
         JOIN users other ON other.id = conv.other_id
-        LIMIT ? OFFSET ?
-    ');
-    $stmt->execute([$user['id'], $user['id'], $user['id'], $user['id'], $user['id'], $user['id'], $user['id'], $user['id'], $limit, $offset]);
+        LIMIT ' . (int)$limit . ' OFFSET ' . (int)$offset
+    );
+    $stmt->execute([$user['id'], $user['id'], $user['id'], $user['id'], $user['id'], $user['id'], $user['id'], $user['id']]);
     $conversations = $stmt->fetchAll();
     $totalStmt = $db->prepare('
         SELECT COUNT(*) as total FROM (

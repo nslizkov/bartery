@@ -307,6 +307,7 @@ Authorization: Bearer <token>
     "created_at": "2025-02-15T12:00:00Z",
     "teach_count": 2,
     "learn_count": 1,
+    "completed_calls_count": 5,
     "skills": [
       {
         "skill_id": 1,
@@ -370,13 +371,19 @@ Authorization: Bearer <token>
 
 Загрузить аватарку профиля.
 
-**Auth:** да  
+**Auth:** да
 
-**Тело запроса:** `multipart/form-data`  
+**Тело запроса:** `multipart/form-data`
 
 | Поле    | Тип  | Обязательно | Описание                        |
 |---------|------|-------------|---------------------------------|
 | avatar  | file | да          | Изображение (JPEG, PNG, GIF, WebP), макс. 2 МБ |
+
+**Валидация:**
+- Форматы: JPEG, PNG, GIF, WebP
+- Максимальный размер файла: 2 MB
+- Минимальные размеры изображения: 50×50 пикселей
+- Максимальные размеры изображения: 2000×2000 пикселей
 
 **Пример запроса (curl):**
 ```bash
@@ -404,11 +411,48 @@ curl -X POST https://your-domain.com/api/users/me/avatar \
 
 `avatar_url` — путь к файлу на сервере. Файлы раздаются по тому же домену, полный URL: `{базовый_домен}{avatar_url}` (например, `https://your-domain.com/uploads/avatars/1_1708012345.jpg`). Если `avatar_url` пустой — аватарка не загружена.
 
+При загрузке нового аватара старый файл автоматически удаляется.
+
 **Ошибки:**
-- `400` — `{"error": "File upload required or upload failed"}`  
-- `400` — `{"error": "Only JPEG, PNG, GIF, WebP allowed"}`  
-- `400` — `{"error": "File too large (max 2MB)"}`  
-- `500` — `{"error": "Failed to save file"}`  
+- `400` — `{"error": "File upload required or upload failed"}`
+- `400` — `{"error": "Only JPEG, PNG, GIF, WebP allowed"}`
+- `400` — `{"error": "File too large (max 2MB)"}`
+- `400` — `{"error": "Invalid image file"}`
+- `400` — `{"error": "Image too small (min 50x50 pixels)"}`
+- `400` — `{"error": "Image too large (max 2000x2000 pixels)"}`
+- `500` — `{"error": "Failed to create upload directory"}`
+- `500` — `{"error": "Upload directory is not writable"}`
+- `500` — `{"error": "Failed to save file", "details": "..."}`
+
+---
+
+### DELETE /api/users/me/avatar
+
+Удалить аватарку профиля.
+
+**Auth:** да
+
+**Тело запроса:** пустое
+
+**Ответ 200:**
+```json
+{
+  "user": {
+    "id": 1,
+    "username": "ivan",
+    "email": "ivan@example.com",
+    "full_name": "Иван Петров",
+    "bio": null,
+    "avatar_url": null,
+    "role": "user",
+    "points": 0
+  },
+  "message": "Avatar deleted"
+}
+```
+
+**Ошибки:**
+- `500` — `{"error": "Failed to delete avatar"}`
 
 ---
 
@@ -555,6 +599,7 @@ curl -X POST https://your-domain.com/api/users/me/avatar \
     "avatar_url": null,
     "points": 0,
     "created_at": "2025-02-15T12:00:00Z",
+    "completed_calls_count": 5,
     "skills": [
       {
         "skill_id": 4,
@@ -566,6 +611,26 @@ curl -X POST https://your-domain.com/api/users/me/avatar \
       }
     ]
   }
+}
+```
+
+**Ошибки:**
+- `404` — `{"error": "User not found"}`
+
+---
+
+### GET /api/users/{id}/completed-calls-count
+
+Получить количество завершённых видеозвонков пользователя.
+
+**Auth:** нет
+
+**Параметры пути:** `id` — ID пользователя
+
+**Ответ 200:**
+```json
+{
+  "completed_calls_count": 5
 }
 ```
 
@@ -1009,6 +1074,7 @@ curl -X POST https://your-domain.com/api/users/me/avatar \
 | GET | /api/users/me | да | Мой профиль |
 | PUT | /api/users/me | да | Обновить профиль |
 | POST | /api/users/me/avatar | да | Загрузить аватарку |
+| DELETE | /api/users/me/avatar | да | Удалить аватарку |
 | GET | /api/users/me/skills | да | Мои навыки |
 | POST | /api/users/me/skills | да | Добавить навык |
 | DELETE | /api/users/me/skills/{skillId} | да | Удалить навык |
