@@ -1060,6 +1060,138 @@ curl -X POST https://your-domain.com/api/users/me/avatar \
 
 ---
 
+## 10. Push-уведомления (Push Tokens)
+
+### GET /api/push-tokens
+
+Получить список моих зарегистрированных push-токенов.
+
+**Auth:** да
+
+**Ответ 200:**
+```json
+{
+  "tokens": [
+    {
+      "id": 1,
+      "user_id": 1,
+      "push_token": "fcm_token_string...",
+      "platform": "android",
+      "device_name": "Samsung Galaxy S21",
+      "device_id": "device123",
+      "created_at": "2025-02-15T12:00:00Z",
+      "updated_at": "2025-02-15T12:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+### POST /api/push-tokens
+
+Зарегистрировать или обновить push-токен для получения уведомлений.
+
+**Auth:** да
+
+**Тело запроса (JSON):**
+| Поле | Тип | Обязательно | Описание |
+|------|-----|-------------|----------|
+| push_token | string | да | FCM токен устройства |
+| platform | string | нет | Платформа: `android`, `ios`, `web` (по умолч. `android`) |
+| device_name | string | нет | Название устройства |
+| device_id | string | нет | Уникальный ID устройства |
+
+**Пример запроса:**
+```json
+{
+  "push_token": "fcm_token_string...",
+  "platform": "android",
+  "device_name": "Samsung Galaxy S21"
+}
+```
+
+**Ответ 201:**
+```json
+{
+  "message": "Token registered",
+  "id": 1
+}
+```
+
+**Ошибки:**
+- `400` — `{"error": "push_token required"}`
+- `400` — `{"error": "Invalid platform. Must be android, ios, or web"}`
+
+---
+
+### DELETE /api/push-tokens/{id}
+
+Удалить push-токен (например, при выходе из аккаунта на устройстве).
+
+**Auth:** да
+
+**Параметры пути:** `id` — ID токена
+
+**Ответ 200:**
+```json
+{
+  "message": "Token deleted"
+}
+```
+
+**Ошибки:**
+- `404` — `{"error": "Token not found"}`
+
+---
+
+## Автоматические push-уведомления
+
+Сервер автоматически отправляет push-уведомления через **FCM HTTP v1 API** (Firebase Cloud Messaging) в следующих случаях:
+
+| Событие | Когда отправляется | Заголовок уведомления |
+|---------|-------------------|----------------------|
+| Новое сообщение | При `POST /api/messages` | "Новое сообщение" |
+| Входящий звонок | При `POST /api/video-calls` | "Входящий звонок" |
+| Новый отзыв | При `POST /api/reviews` | "Новый отзыв" |
+
+### Настройка
+
+Для аутентификации используется файл сервисного аккаунта Firebase: `src/bartery-1-firebase-adminsdk-fbsvc-20493bcfca.json`.
+Сервер автоматически получает OAuth2 access token через JWT и отправляет уведомления через `https://fcm.googleapis.com/v1/projects/bartery-1/messages:send`.
+
+### Формат данных уведомления
+
+Каждое push-уведомление содержит поле `data` с дополнительной информацией:
+
+**Сообщение:**
+```json
+{
+  "type": "message",
+  "sender_name": "ivan"
+}
+```
+
+**Звонок:**
+```json
+{
+  "type": "call",
+  "caller_name": "ivan",
+  "call_id": "1"
+}
+```
+
+**Отзыв:**
+```json
+{
+  "type": "review",
+  "reviewer_name": "ivan",
+  "rating": "5"
+}
+```
+
+---
+
 ## Сводная таблица
 
 | Метод | Путь | Auth | Описание |
@@ -1092,3 +1224,6 @@ curl -X POST https://your-domain.com/api/users/me/avatar \
 | GET | /api/badges/user/{userId} | нет | Бейджи пользователя |
 | GET | /api/user-skills | да | Все навыки всех пользователей |
 | GET | /api/user-skills/{userId} | да | Навыки конкретного пользователя (с сортировкой по релевантности) |
+| GET | /api/push-tokens | да | Мои push-токены |
+| POST | /api/push-tokens | да | Зарегистрировать push-токен |
+| DELETE | /api/push-tokens/{id} | да | Удалить push-токен |

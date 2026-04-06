@@ -6,7 +6,7 @@ require_once __DIR__ . '/../../src/Database.php';
 
 $db = Database::get();
 $table = isset($_GET['name']) ? preg_replace('/[^a-z_0-9]/', '', $_GET['name']) : '';
-$allowed = ['users', 'categories', 'skills', 'user_skills', 'messages', 'reviews', 'video_calls', 'badges', 'user_badges'];
+$allowed = ['users', 'categories', 'skills', 'user_skills', 'messages', 'reviews', 'video_calls', 'badges', 'user_badges', 'user_push_tokens'];
 if (!in_array($table, $allowed, true)) {
     header('Location: index.php');
     exit;

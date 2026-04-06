@@ -6,7 +6,7 @@
 require_once __DIR__ . '/../../src/Database.php';
 
 $db = Database::get();
-$tables = ['users', 'categories', 'skills', 'user_skills', 'messages', 'reviews', 'video_calls', 'badges', 'user_badges'];
+$tables = ['users', 'categories', 'skills', 'user_skills', 'messages', 'reviews', 'video_calls', 'badges', 'user_badges', 'user_push_tokens'];
 $stats = [];
 foreach ($tables as $t) {
     try {

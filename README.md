@@ -174,6 +174,51 @@ server/
 | GET | /api/badges | - | Список бейджей |
 | GET | /api/badges/user/{userId} | - | Бейджи пользователя |
 
+### Push-уведомления
+| Метод | Путь | Auth | Описание |
+|-------|------|------|----------|
+| GET | /api/push-tokens | ✓ | Мои push-токены |
+| POST | /api/push-tokens | ✓ | Зарегистрировать push-токен |
+| DELETE | /api/push-tokens/{id} | ✓ | Удалить push-токен |
+
+---
+
+## Push-уведомления (FCM)
+
+Сервер автоматически отправляет push-уведомления через Firebase Cloud Messaging (FCM) при следующих событиях:
+
+- **Новое сообщение** — когда пользователь получает сообщение через `POST /api/messages`
+- **Входящий звонок** — когда пользователю начинают звонок через `POST /api/video-calls`
+- **Новый отзыв** — когда на пользователя оставляют отзыв через `POST /api/reviews`
+
+### Настройка FCM
+
+1. **Файл сервисного аккаунта:**
+   - Файл `src/bartery-1-firebase-adminsdk-fbsvc-20493bcfca.json` уже размещён в проекте
+   - Он используется автоматически для аутентификации в FCM HTTP v1 API
+
+2. **Для нового проекта:**
+   - Зайди в [Firebase Console](https://console.firebase.google.com/)
+   - Перейди в Project Settings → Service Accounts
+   - Нажми "Generate new private key" и скачай JSON
+   - Положи файл в `src/` и обнови путь в [`src/PushNotification.php`](src/PushNotification.php)
+
+3. **Переменные окружения (опционально):**
+   ```env
+   APP_URL=http://localhost:8080
+   ```
+
+### Регистрация токена на клиенте
+
+Клиентское приложение должно зарегистрировать свой FCM токен:
+
+```bash
+curl -X POST http://localhost:8080/api/push-tokens \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{"push_token":"fcm_token_here","platform":"android","device_name":"My Device"}'
+```
+
 ---
 
 ## Авторизация

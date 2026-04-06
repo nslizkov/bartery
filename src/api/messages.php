@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/../PushNotification.php';
+
 $user = requireAuth();
 
 // GET /api/messages - list conversations (pagination: limit, offset)
@@ -71,7 +73,13 @@ if (!$id && $method === 'POST') {
     $msgId = (int) $db->lastInsertId();
     $stmt = $db->prepare('SELECT id, sender_id, receiver_id, content, is_read, created_at FROM messages WHERE id = ?');
     $stmt->execute([$msgId]);
-    jsonResponse(['message' => $stmt->fetch()], 201);
+    $message = $stmt->fetch();
+
+    // Send push notification to receiver
+    $push = PushNotification::getInstance();
+    $push->sendMessageNotification($receiverId, $user['username'], $content);
+
+    jsonResponse(['message' => $message], 201);
 }
 
 jsonResponse(['error' => 'Not found'], 404);

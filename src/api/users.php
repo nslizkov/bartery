@@ -57,7 +57,7 @@ if ($id === 'me' && $sub === 'avatar' && $method === 'POST') {
         jsonResponse(['error' => 'File too large (max 2MB)'], 400);
     }
     
-    // Validate image dimensions (min 50x50, max 2000x2000)
+    // Validate image dimensions (min 50x50, max 4000x4000)
     $imageInfo = getimagesize($file['tmp_name']);
     if (!$imageInfo) {
         jsonResponse(['error' => 'Invalid image file'], 400);
@@ -66,8 +66,8 @@ if ($id === 'me' && $sub === 'avatar' && $method === 'POST') {
     if ($width < 50 || $height < 50) {
         jsonResponse(['error' => 'Image too small (min 50x50 pixels)'], 400);
     }
-    if ($width > 2000 || $height > 2000) {
-        jsonResponse(['error' => 'Image too large (max 2000x2000 pixels)'], 400);
+    if ($width > 4000 || $height > 4000) {
+        jsonResponse(['error' => 'Image too large (max 4000x4000 pixels)'], 400);
     }
     
     $ext = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif', 'image/webp' => 'webp'][$mime];

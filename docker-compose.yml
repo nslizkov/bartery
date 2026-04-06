@@ -17,6 +17,8 @@ services:
       - "80"
     volumes:
       - .:/var/www/html
+    command: >
+      sh -c "mkdir -p /var/www/html/uploads/avatars /var/www/html/logs && chown -R www-data:www-data /var/www/html/uploads /var/www/html/logs && chmod -R 755 /var/www/html/uploads /var/www/html/logs && apache2-foreground"
     depends_on:
       mysql:
         condition: service_healthy
@@ -35,6 +37,12 @@ services:
       - "80"
     volumes:
       - .:/var/www/html
+    command: >
+      sh -c "mkdir -p /var/www/html/uploads/avatars /var/www/html/logs &&
+             chown -R www-data:www-data /var/www/html/uploads /var/www/html/logs &&
+             chmod -R 755 /var/www/html/uploads /var/www/html/logs &&
+             ln -sf /var/www/html/uploads /var/www/html/web/uploads &&
+             apache2-foreground"
     depends_on:
       mysql:
         condition: service_healthy

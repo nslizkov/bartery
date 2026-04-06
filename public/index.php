@@ -3,6 +3,92 @@
 require_once __DIR__ . '/../src/Database.php';
 require_once __DIR__ . '/../src/helpers.php';
 
+// Global error logging
+$logDir = __DIR__ . '/../logs';
+$logFile = $logDir . '/api_errors.log';
+if (!is_dir($logDir)) {
+    mkdir($logDir, 0755, true);
+}
+
+// Log all PHP errors to file
+set_error_handler(function ($severity, $message, $file, $line) use ($logFile) {
+    $logEntry = [
+        'timestamp' => date('Y-m-d H:i:s'),
+        'type' => 'php_error',
+        'severity' => $severity,
+        'message' => $message,
+        'file' => $file,
+        'line' => $line,
+        'request' => [
+            'method' => $_SERVER['REQUEST_METHOD'] ?? 'unknown',
+            'uri' => $_SERVER['REQUEST_URI'] ?? 'unknown',
+            'ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
+        ],
+    ];
+    $logLine = json_encode($logEntry, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
+    file_put_contents($logFile, $logLine, FILE_APPEND | LOCK_EX);
+    
+    // Use default error handler too
+    return false;
+});
+
+// Log uncaught exceptions
+set_exception_handler(function ($exception) use ($logFile) {
+    $logEntry = [
+        'timestamp' => date('Y-m-d H:i:s'),
+        'type' => 'uncaught_exception',
+        'message' => $exception->getMessage(),
+        'file' => $exception->getFile(),
+        'line' => $exception->getLine(),
+        'trace' => $exception->getTraceAsString(),
+        'request' => [
+            'method' => $_SERVER['REQUEST_METHOD'] ?? 'unknown',
+            'uri' => $_SERVER['REQUEST_URI'] ?? 'unknown',
+            'ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
+        ],
+    ];
+    $logLine = json_encode($logEntry, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
+    file_put_contents($logFile, $logLine, FILE_APPEND | LOCK_EX);
+    
+    // Return 500 error
+    http_response_code(500);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['error' => 'Internal server error'], JSON_UNESCAPED_UNICODE);
+    exit;
+});
+
+// Log fatal errors
+register_shutdown_function(function () use ($logFile) {
+    $error = error_get_last();
+    if ($error && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        $logEntry = [
+            'timestamp' => date('Y-m-d H:i:s'),
+            'type' => 'fatal_error',
+            'message' => $error['message'],
+            'file' => $error['file'],
+            'line' => $error['line'],
+            'request' => [
+                'method' => $_SERVER['REQUEST_METHOD'] ?? 'unknown',
+                'uri' => $_SERVER['REQUEST_URI'] ?? 'unknown',
+                'ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
+            ],
+        ];
+        $logLine = json_encode($logEntry, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
+        file_put_contents($logFile, $logLine, FILE_APPEND | LOCK_EX);
+    }
+});
+
+// Log request start
+$requestLogEntry = [
+    'timestamp' => date('Y-m-d H:i:s'),
+    'type' => 'request',
+    'method' => $_SERVER['REQUEST_METHOD'] ?? 'unknown',
+    'uri' => $_SERVER['REQUEST_URI'] ?? 'unknown',
+    'ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
+    'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? 'unknown',
+];
+file_put_contents($logFile, json_encode($requestLogEntry, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL, FILE_APPEND | LOCK_EX);
+
 // CORS preflight
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     header('Access-Control-Allow-Origin: *');
@@ -120,6 +206,12 @@ if ($resource === 'reviews') {
 // Video calls
 if ($resource === 'video-calls') {
     require __DIR__ . '/../src/api/video_calls.php';
+    exit;
+}
+
+// Push tokens
+if ($resource === 'push-tokens') {
+    require __DIR__ . '/../src/api/user_push_tokens.php';
     exit;
 }
 

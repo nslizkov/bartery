@@ -1,11 +1,13 @@
 <?php
 
+require_once __DIR__ . '/../PushNotification.php';
+
 $user = requireAuth();
 
 // GET /api/video-calls - my calls
 if (!$id && $method === 'GET') {
     $stmt = $db->prepare('
-        SELECT vc.id, vc.caller_id, vc.callee_id, vc.started_at, vc.ended_at, vc.duration, vc.status,
+        SELECT vc.id, vc.caller_id, vc.callee_id, vc.room_name, vc.started_at, vc.ended_at, vc.duration, vc.status,
             u.username as other_username, u.full_name as other_name, u.avatar_url as other_avatar
         FROM video_calls vc
         JOIN users u ON u.id = CASE WHEN vc.caller_id = ? THEN vc.callee_id ELSE vc.caller_id END
@@ -27,12 +29,19 @@ if (!$id && $method === 'POST') {
     if ($calleeId === $user['id']) {
         jsonResponse(['error' => 'Cannot call yourself'], 400);
     }
-    $db->prepare('INSERT INTO video_calls (caller_id, callee_id, status) VALUES (?, ?, ?)')
-        ->execute([$user['id'], $calleeId, 'pending']);
-    $id = (int) $db->lastInsertId();
+    $roomName = isset($data['room_name']) ? $data['room_name'] : null;
+    $db->prepare('INSERT INTO video_calls (caller_id, callee_id, room_name, status) VALUES (?, ?, ?, ?)')
+        ->execute([$user['id'], $calleeId, $roomName, 'pending']);
+    $callId = (int) $db->lastInsertId();
     $stmt = $db->prepare('SELECT * FROM video_calls WHERE id = ?');
-    $stmt->execute([$id]);
-    jsonResponse(['call' => $stmt->fetch()], 201);
+    $stmt->execute([$callId]);
+    $call = $stmt->fetch();
+
+    // Send push notification to callee
+    $push = PushNotification::getInstance();
+    $push->sendCallNotification($calleeId, $user['username'], $callId);
+
+    jsonResponse(['call' => $call], 201);
 }
 
 // PATCH /api/video-calls/{id} - update status (active, completed, cancelled)

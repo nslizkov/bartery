@@ -14,4 +14,9 @@ RUN echo '<Directory /var/www/html/public>' \
     '\n</Directory>' \
     >> /etc/apache2/apache2.conf
 
+# Create uploads directory with proper permissions
+RUN mkdir -p /var/www/html/uploads/avatars && \
+    chown -R www-data:www-data /var/www/html/uploads && \
+    chmod -R 755 /var/www/html/uploads
+
 EXPOSE 80

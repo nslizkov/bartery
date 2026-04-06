@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/../PushNotification.php';
+
 // GET /api/reviews/{userId} - reviews for user (public)
 if (is_numeric($id) && !$sub && $method === 'GET') {
     $userId = (int) $id;
@@ -40,6 +42,11 @@ if (!$id && $method === 'POST') {
     $stmt = $db->prepare('SELECT id, reviewer_id, reviewed_id, rating, comment, created_at FROM reviews WHERE reviewer_id = ? AND reviewed_id = ?');
     $stmt->execute([$user['id'], $reviewedId]);
     $review = $stmt->fetch();
+
+    // Send push notification to reviewed user
+    $push = PushNotification::getInstance();
+    $push->sendReviewNotification($reviewedId, $user['username'], $rating);
+
     jsonResponse(['review' => $review], 201);
 }
 
