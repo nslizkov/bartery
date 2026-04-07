@@ -23,8 +23,40 @@ set_error_handler(function ($severity, $message, $file, $line) use ($logFile) {
             'method' => $_SERVER['REQUEST_METHOD'] ?? 'unknown',
             'uri' => $_SERVER['REQUEST_URI'] ?? 'unknown',
             'ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
+            'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? 'unknown',
         ],
     ];
+    
+    // Add request body if available (for POST, PUT, PATCH)
+    if (in_array($_SERVER['REQUEST_METHOD'] ?? '', ['POST', 'PUT', 'PATCH'])) {
+        $body = file_get_contents('php://input');
+        if ($body) {
+            $logEntry['request']['body'] = $body;
+            // Reset input stream for further processing
+            file_put_contents('php://input', $body);
+        }
+    }
+    
+    // Add authenticated user info if available
+    try {
+        $authHeader = getallheaders()['Authorization'] ?? getallheaders()['authorization'] ?? '';
+        if (preg_match('/^Bearer\s+(.+)$/i', trim($authHeader), $m)) {
+            $token = $m[1];
+            $db = Database::get();
+            $stmt = $db->prepare('SELECT id, username FROM users WHERE api_token = ? AND is_active = 1');
+            $stmt->execute([$token]);
+            $user = $stmt->fetch();
+            if ($user) {
+                $logEntry['user'] = [
+                    'id' => $user['id'],
+                    'username' => $user['username'],
+                ];
+            }
+        }
+    } catch (Exception $e) {
+        // Ignore if auth fails
+    }
+    
     $logLine = json_encode($logEntry, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
     file_put_contents($logFile, $logLine, FILE_APPEND | LOCK_EX);
     
@@ -45,8 +77,38 @@ set_exception_handler(function ($exception) use ($logFile) {
             'method' => $_SERVER['REQUEST_METHOD'] ?? 'unknown',
             'uri' => $_SERVER['REQUEST_URI'] ?? 'unknown',
             'ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
+            'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? 'unknown',
         ],
     ];
+    
+    // Add request body if available (for POST, PUT, PATCH)
+    if (in_array($_SERVER['REQUEST_METHOD'] ?? '', ['POST', 'PUT', 'PATCH'])) {
+        $body = file_get_contents('php://input');
+        if ($body) {
+            $logEntry['request']['body'] = $body;
+        }
+    }
+    
+    // Add authenticated user info if available
+    try {
+        $authHeader = getallheaders()['Authorization'] ?? getallheaders()['authorization'] ?? '';
+        if (preg_match('/^Bearer\s+(.+)$/i', trim($authHeader), $m)) {
+            $token = $m[1];
+            $db = Database::get();
+            $stmt = $db->prepare('SELECT id, username FROM users WHERE api_token = ? AND is_active = 1');
+            $stmt->execute([$token]);
+            $user = $stmt->fetch();
+            if ($user) {
+                $logEntry['user'] = [
+                    'id' => $user['id'],
+                    'username' => $user['username'],
+                ];
+            }
+        }
+    } catch (Exception $e) {
+        // Ignore if auth fails
+    }
+    
     $logLine = json_encode($logEntry, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
     file_put_contents($logFile, $logLine, FILE_APPEND | LOCK_EX);
     
@@ -71,8 +133,38 @@ register_shutdown_function(function () use ($logFile) {
                 'method' => $_SERVER['REQUEST_METHOD'] ?? 'unknown',
                 'uri' => $_SERVER['REQUEST_URI'] ?? 'unknown',
                 'ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
+                'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? 'unknown',
             ],
         ];
+        
+        // Add request body if available (for POST, PUT, PATCH)
+        if (in_array($_SERVER['REQUEST_METHOD'] ?? '', ['POST', 'PUT', 'PATCH'])) {
+            $body = file_get_contents('php://input');
+            if ($body) {
+                $logEntry['request']['body'] = $body;
+            }
+        }
+        
+        // Add authenticated user info if available
+        try {
+            $authHeader = getallheaders()['Authorization'] ?? getallheaders()['authorization'] ?? '';
+            if (preg_match('/^Bearer\s+(.+)$/i', trim($authHeader), $m)) {
+                $token = $m[1];
+                $db = Database::get();
+                $stmt = $db->prepare('SELECT id, username FROM users WHERE api_token = ? AND is_active = 1');
+                $stmt->execute([$token]);
+                $user = $stmt->fetch();
+                if ($user) {
+                    $logEntry['user'] = [
+                        'id' => $user['id'],
+                        'username' => $user['username'],
+                    ];
+                }
+            }
+        } catch (Exception $e) {
+            // Ignore if auth fails
+        }
+        
         $logLine = json_encode($logEntry, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
         file_put_contents($logFile, $logLine, FILE_APPEND | LOCK_EX);
     }
@@ -161,6 +253,22 @@ $id = $segments[2] ?? null;
 $sub = $segments[3] ?? null;
 $subId = $segments[4] ?? null;
 
+// Special handling for /api/call/* and /api/calls/* endpoints
+// /api/call/start -> resource='call', id=null, sub='start'
+// /api/call/join/5 -> resource='call', id=5, sub='join'
+// /api/call/cancel/5 -> resource='call', id=5, sub='cancel'
+// /api/calls/5 -> resource='calls', id=5, sub=null
+if (in_array($resource, ['call', 'calls'])) {
+    if ($id !== null && !is_numeric($id)) {
+        // Second segment is an action (start, join, cancel, end), not an ID
+        $action = $id;  // save the action from segment 2
+        $id = $sub;     // segment 3 (if exists) becomes the ID
+        $sub = $action; // segment 2 becomes the action/sub
+    }
+    // else: /api/call/5 or /api/calls/5 -> second segment is numeric ID, keep as is
+    // /api/call or /api/calls -> no second segment, keep id=null, sub=null
+}
+
 try {
     $db = Database::get();
 } catch (PDOException $e) {
@@ -203,9 +311,9 @@ if ($resource === 'reviews') {
     exit;
 }
 
-// Video calls
-if ($resource === 'video-calls') {
-    require __DIR__ . '/../src/api/video_calls.php';
+// Call endpoints
+if ($resource === 'call' || $resource === 'calls') {
+    require __DIR__ . '/../src/api/calls.php';
     exit;
 }
 

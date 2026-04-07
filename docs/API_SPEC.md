@@ -207,6 +207,97 @@ Authorization: Bearer <token>
 
 ---
 
+### GET /api/skills/sorted-for-me
+
+Все навыки из каталога, отсортированные по полезности для текущего пользователя.
+
+**Auth:** да
+
+**Query-параметры:** нет
+
+**Приоритеты сортировки (от высшего к низшему):**
+1. **Навыки с комплементарными пользователями (наивысший приоритет):**
+   - У текущего пользователя есть навык с типом `teach` (преподает) И существует хотя бы один другой пользователь, который хочет изучить этот навык (type=learn)
+   - У текущего пользователя есть навык с типом `learn` (хочет изучить) И существует хотя бы один другой пользователь, который преподает этот навык (type=teach)
+2. **Навыки из тех же категорий:** Навыки, принадлежащие к категориям, которые уже есть у текущего пользователя
+3. **Остальные навыки:** Все остальные навыки, не попадающие в категории выше
+
+**Пример:** `GET /api/skills?action=sorted-for-me`
+
+**Ответ 200:**
+```json
+{
+  "skills": [
+    {
+      "id": 1,
+      "name": "Python",
+      "description": "Язык программирования Python",
+      "category_id": 2,
+      "category_name": "Программирование"
+    },
+    {
+      "id": 8,
+      "name": "JavaScript",
+      "description": "Язык программирования JavaScript",
+      "category_id": 2,
+      "category_name": "Программирование"
+    }
+  ]
+}
+```
+
+**Ошибки:**
+- `401` — `{"error": "Unauthorized"}`
+
+---
+
+### GET /api/skills/recommended
+
+Рекомендуемые навыки от других пользователей, отсортированные по релевантности для текущего пользователя.
+
+**Auth:** да
+
+**Query-параметры:** нет
+
+**Приоритеты сортировки (от высшего к низшему):**
+1. **Комплементарные (наивысший приоритет):**
+   - Пользователи, которые **преподают** навык, который **текущий пользователь хочет изучить** (type=teach для них, type=learn у текущего)
+   - Пользователи, которые **хотят изучить** навык, который **текущий пользователь преподает** (type=learn для них, type=teach у текущего)
+2. **Одна категория:** Навыки из тех же категорий, что и навыки текущего пользователя
+3. **Тот же тип:** Навыки того же типа (teach/learn), что и у текущего пользователя для этого навыка
+4. **Остальные:** Навыки, не попадающие в категории выше
+
+**Пример:** `GET /api/skills?action=recommended`
+
+**Ответ 200:**
+```json
+{
+  "skills": [
+    {
+      "user_id": 2,
+      "skill_id": 5,
+      "type": "teach",
+      "proficiency_level": 5,
+      "description": "Опыт преподавания 5 лет",
+      "created_at": "2025-02-15T12:00:00Z",
+      "username": "marie",
+      "full_name": "Мари",
+      "avatar_url": null,
+      "skill_id_def": 5,
+      "skill_name": "JavaScript",
+      "skill_description": "Язык программирования JavaScript",
+      "category_id": 2,
+      "category_name": "Программирование"
+    }
+  ]
+}
+```
+
+**Ошибки:**
+- `401` — `{"error": "Unauthorized"}`
+
+---
+
 ### POST /api/skills
 
 Создать навык.
@@ -819,41 +910,13 @@ curl -X POST https://your-domain.com/api/users/me/avatar \
 
 ---
 
-## 7. Видеозвонки
+## 7. Управление звонками
 
-### GET /api/video-calls
+### POST /api/call/start
 
-История звонков текущего пользователя.
+Начать видеозвонок. Создаёт звонок со статусом `pending`, генерирует комнату Jitsi и отправляет push-уведомление получателю.
 
-**Auth:** да  
-
-**Ответ 200:**
-```json
-{
-  "calls": [
-    {
-      "id": 1,
-      "caller_id": 1,
-      "callee_id": 2,
-      "started_at": "2025-02-15T16:00:00Z",
-      "ended_at": "2025-02-15T16:30:00Z",
-      "duration": 1800,
-      "status": "completed",
-      "other_username": "marie",
-      "other_name": "Мари",
-      "other_avatar": null
-    }
-  ]
-}
-```
-
----
-
-### POST /api/video-calls
-
-Создать звонок (статус `pending`).
-
-**Auth:** да  
+**Auth:** да
 
 **Тело запроса (JSON):**
 | Поле      | Тип | Обязательно | Описание  |
@@ -863,6 +926,7 @@ curl -X POST https://your-domain.com/api/users/me/avatar \
 **Пример запроса:**
 ```json
 {
+  "caller_id": 1,
   "callee_id": 2
 }
 ```
@@ -874,7 +938,8 @@ curl -X POST https://your-domain.com/api/users/me/avatar \
     "id": 1,
     "caller_id": 1,
     "callee_id": 2,
-    "started_at": "2025-02-15T16:00:00Z",
+    "room_name": "BarteryCall_1_2_20260406120000",
+    "started_at": "2026-04-06T12:00:00Z",
     "ended_at": null,
     "duration": null,
     "status": "pending"
@@ -884,30 +949,28 @@ curl -X POST https://your-domain.com/api/users/me/avatar \
 
 **Ошибки:**
 - `400` — `{"error": "callee_id required"}` или `{"error": "Cannot call yourself"}`
+- `404` — `{"error": "Callee not found"}`
+
+**Push-уведомление получателю:**
+```json
+{
+  "type": "incoming_call",
+  "caller_id": "1",
+  "caller_name": "ivan",
+  "call_id": "1",
+  "room_name": "BarteryCall_1_2_20260406120000"
+}
+```
 
 ---
 
-### PATCH /api/video-calls/{id}
+### POST /api/call/join/{id}
 
-Обновить статус звонка.
+Принять входящий звонок. Устанавливает статус `active` и фиксирует время начала.
 
-**Auth:** да  
+**Auth:** да
 
-**Параметры пути:** `id` — ID звонка  
-
-**Тело запроса (JSON):**
-| Поле   | Тип    | Обязательно | Описание                                               |
-|--------|--------|-------------|--------------------------------------------------------|
-| status | string | да          | `"active"`, `"completed"`, `"cancelled"`               |
-
-При `"completed"` заполняются `ended_at` и `duration` (секунды).
-
-**Пример запроса:**
-```json
-{
-  "status": "completed"
-}
-```
+**Параметры пути:** `id` — ID звонка
 
 **Ответ 200:**
 ```json
@@ -916,8 +979,89 @@ curl -X POST https://your-domain.com/api/users/me/avatar \
     "id": 1,
     "caller_id": 1,
     "callee_id": 2,
-    "started_at": "2025-02-15T16:00:00Z",
-    "ended_at": "2025-02-15T16:30:00Z",
+    "room_name": "BarteryCall_1_2_20260406120000",
+    "started_at": "2026-04-06T12:00:00Z",
+    "ended_at": null,
+    "duration": null,
+    "status": "active"
+  }
+}
+```
+
+**Ошибки:**
+- `400` — `{"error": "Call ID required"}` или `{"error": "Call is not in pending status"}`
+- `403` — `{"error": "Only callee can join this call"}`
+- `404` — `{"error": "Call not found"}`
+
+---
+
+### POST /api/call/cancel/{id}
+
+Отменить или отклонить звонок. Если callee отклоняет — уведомляет caller. Если caller отменяет — уведомляет callee.
+
+**Auth:** да
+
+**Параметры пути:** `id` — ID звонка
+
+**Ответ 200:**
+```json
+{
+  "call": {
+    "id": 1,
+    "caller_id": 1,
+    "callee_id": 2,
+    "room_name": "BarteryCall_1_2_20260406120000",
+    "started_at": "2026-04-06T12:00:00Z",
+    "ended_at": "2026-04-06T12:01:00Z",
+    "duration": null,
+    "status": "cancelled"
+  }
+}
+```
+
+**Ошибки:**
+- `400` — `{"error": "Call ID required"}` или `{"error": "Call cannot be cancelled"}`
+- `403` — `{"error": "Unauthorized"}`
+- `404` — `{"error": "Call not found"}`
+
+**Push-уведомление при отклонении (callee → caller):**
+```json
+{
+  "type": "call_declined",
+  "callee_name": "marie",
+  "call_id": "1"
+}
+```
+
+**Push-уведомление при отмене (caller → callee):**
+```json
+{
+  "type": "call_cancelled",
+  "caller_name": "ivan",
+  "call_id": "1"
+}
+```
+
+---
+
+### POST /api/call/end/{id}
+
+Завершить активный звонок. Рассчитывает длительность, уведомляет обоих участников.
+
+**Auth:** да
+
+**Параметры пути:** `id` — ID звонка
+
+**Ответ 200:**
+```json
+{
+  "call": {
+    "id": 1,
+    "caller_id": 1,
+    "callee_id": 2,
+    "room_name": "BarteryCall_1_2_20260406120000",
+    "started_at": "2026-04-06T12:00:00Z",
+    "ended_at": "2026-04-06T12:30:00Z",
     "duration": 1800,
     "status": "completed"
   }
@@ -925,12 +1069,96 @@ curl -X POST https://your-domain.com/api/users/me/avatar \
 ```
 
 **Ошибки:**
-- `400` — `{"error": "status required"}` или `{"error": "Invalid status"}`
+- `400` — `{"error": "Call ID required"}` или `{"error": "Call is not active"}`
+- `403` — `{"error": "Unauthorized"}`
+- `404` — `{"error": "Call not found"}`
+
+**Push-уведомление обоим участникам:**
+```json
+{
+  "type": "call_ended",
+  "ended_by_name": "ivan",
+  "call_id": "1",
+  "duration": "1800"
+}
+```
+
+---
+
+### GET /api/calls/{id}
+
+Получить информацию о звонке по ID.
+
+**Auth:** да
+
+**Параметры пути:** `id` — ID звонка
+
+**Ответ 200:**
+```json
+{
+  "call": {
+    "id": 1,
+    "caller_id": 1,
+    "callee_id": 2,
+    "room_name": "BarteryCall_1_2_20260406120000",
+    "started_at": "2026-04-06T12:00:00Z",
+    "ended_at": "2026-04-06T12:30:00Z",
+    "duration": 1800,
+    "status": "completed",
+    "caller_username": "ivan",
+    "caller_name": "Иван Петров",
+    "caller_avatar": "/uploads/avatars/1_1111111111.jpg",
+    "callee_username": "marie",
+    "callee_name": "Мари",
+    "callee_avatar": null
+  }
+}
+```
+
+**Ошибки:**
 - `404` — `{"error": "Call not found"}`
 
 ---
 
-## 8. Бейджи
+### GET /api/calls/user/{userId}
+
+Получить все звонки пользователя по ID пользователя.
+
+**Auth:** да (только для своего аккаунта или администратора)
+
+**Параметры пути:** `userId` — ID пользователя
+
+**Ответ 200:**
+```json
+{
+  "calls": [
+    {
+      "id": 1,
+      "caller_id": 1,
+      "callee_id": 2,
+      "room_name": "BarteryCall_1_2_20260406120000",
+      "started_at": "2026-04-06T12:00:00Z",
+      "ended_at": "2026-04-06T12:30:00Z",
+      "duration": 1800,
+      "status": "completed",
+      "caller_username": "ivan",
+      "caller_name": "Иван Петров",
+      "caller_avatar": "/uploads/avatars/1_1111111111.jpg",
+      "callee_username": "marie",
+      "callee_name": "Мари",
+      "callee_avatar": null
+    }
+  ]
+}
+```
+
+**Ошибки:**
+- `403` — `{"error": "Unauthorized"}`
+- `404` — `{"error": "User not found"}`
+
+---
+
+## 7. Бейджи
 
 ### GET /api/badges
 
@@ -980,7 +1208,7 @@ curl -X POST https://your-domain.com/api/users/me/avatar \
 
 ---
 
-## 9. Навыки пользователей (user_skills)
+## 8. Навыки пользователей (user_skills)
 
 ### GET /api/user-skills
 
@@ -1060,7 +1288,7 @@ curl -X POST https://your-domain.com/api/users/me/avatar \
 
 ---
 
-## 10. Push-уведомления (Push Tokens)
+## 9. Push-уведомления (Push Tokens)
 
 ### GET /api/push-tokens
 
@@ -1152,7 +1380,11 @@ curl -X POST https://your-domain.com/api/users/me/avatar \
 | Событие | Когда отправляется | Заголовок уведомления |
 |---------|-------------------|----------------------|
 | Новое сообщение | При `POST /api/messages` | "Новое сообщение" |
-| Входящий звонок | При `POST /api/video-calls` | "Входящий звонок" |
+| Входящий звонок | При `POST /api/call/start` | "Входящий звонок" |
+| Звонок принят | При `POST /api/call/join` | "Звонок принят" |
+| Звонок отклонён | При `POST /api/call/cancel` (callee) | "Звонок отклонён" |
+| Звонок отменён | При `POST /api/call/cancel` (caller) | "Звонок отменён" |
+| Звонок завершён | При `POST /api/call/end` | "Звонок завершён" |
 | Новый отзыв | При `POST /api/reviews` | "Новый отзыв" |
 
 ### Настройка
@@ -1172,12 +1404,52 @@ curl -X POST https://your-domain.com/api/users/me/avatar \
 }
 ```
 
-**Звонок:**
+**Входящий звонок:**
 ```json
 {
-  "type": "call",
+  "type": "incoming_call",
+  "caller_id": "1",
+  "caller_name": "ivan",
+  "call_id": "1",
+  "room_name": "BarteryCall_1_2_20260406120000"
+}
+```
+
+**Звонок отклонён:**
+```json
+{
+  "type": "call_declined",
+  "callee_name": "marie",
+  "call_id": "1"
+}
+```
+
+**Звонок отменён:**
+```json
+{
+  "type": "call_cancelled",
   "caller_name": "ivan",
   "call_id": "1"
+}
+```
+
+**Звонок принят:**
+```json
+{
+  "type": "call_accepted",
+  "callee_name": "marie",
+  "call_id": "1",
+  "room_name": "BarteryCall_1_2_20260406120000"
+}
+```
+
+**Звонок завершён:**
+```json
+{
+  "type": "call_ended",
+  "ended_by_name": "ivan",
+  "call_id": "1",
+  "duration": "1800"
 }
 ```
 
@@ -1201,6 +1473,7 @@ curl -X POST https://your-domain.com/api/users/me/avatar \
 | POST | /api/auth/logout | да | Выход |
 | GET | /api/categories | нет | Список категорий |
 | GET | /api/skills | нет | Список навыков |
+| GET | /api/skills?action=sorted-for-me | да | Все навыки, отсортированные по полезности |
 | POST | /api/skills | да | Создать навык |
 | GET | /api/users | да | Список пользователей |
 | GET | /api/users/me | да | Мой профиль |
@@ -1217,9 +1490,12 @@ curl -X POST https://your-domain.com/api/users/me/avatar \
 | POST | /api/messages | да | Отправить сообщение |
 | GET | /api/reviews/{userId} | нет | Отзывы о пользователе |
 | POST | /api/reviews | да | Оставить отзыв |
-| GET | /api/video-calls | да | История звонков |
-| POST | /api/video-calls | да | Создать звонок |
-| PATCH | /api/video-calls/{id} | да | Обновить статус звонка |
+| POST | /api/call/start | да | Начать видеозвонок |
+| POST | /api/call/join/{id} | да | Принять входящий звонок |
+| POST | /api/call/cancel/{id} | да | Отменить/отклонить звонок |
+| POST | /api/call/end/{id} | да | Завершить активный звонок |
+| GET | /api/calls/{id} | да | Информация о звонке по ID |
+| GET | /api/calls/user/{userId} | да | Все звонки пользователя |
 | GET | /api/badges | нет | Список бейджей |
 | GET | /api/badges/user/{userId} | нет | Бейджи пользователя |
 | GET | /api/user-skills | да | Все навыки всех пользователей |
