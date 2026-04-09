@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../helpers.php';
+require_once __DIR__ . '/../BadgeService.php';
 
 // GET /api/users - list all users (auth required, pagination: limit, offset)
 if (!$id && $method === 'GET') {
@@ -238,6 +239,18 @@ if ($id === 'me' && $sub === 'skills' && $method === 'POST') {
             ->execute([$user['id'], $skillId, $type, $level, $description]);
         $stmt = $db->prepare('SELECT us.skill_id, us.type, us.proficiency_level, us.description, s.name as skill_name FROM user_skills us JOIN skills s ON us.skill_id = s.id WHERE us.user_id = ? AND us.skill_id = ?');
         $stmt->execute([$user['id'], $skillId]);
+        
+        // Check and award Student badge
+        try {
+            $badgeService = new BadgeService();
+            $badgeService->checkAndAwardBadges($user['id'], 'skill_added');
+        } catch (Exception $badgeEx) {
+            logApiError('Badge check failed (student)', [
+                'error' => $badgeEx->getMessage(),
+                'user_id' => $user['id'],
+            ]);
+        }
+        
         jsonResponse(['skill' => $stmt->fetch()], 201);
     } catch (PDOException $e) {
         logApiError('Error adding/updating user skill', [

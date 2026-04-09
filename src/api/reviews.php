@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/../helpers.php';
 require_once __DIR__ . '/../PushNotification.php';
+require_once __DIR__ . '/../BadgeService.php';
 
 // GET /api/reviews/{userId} - reviews for user (public)
 if (is_numeric($id) && !$sub && $method === 'GET') {
@@ -64,6 +65,23 @@ if (!$id && $method === 'POST') {
                 'error' => $pushEx->getMessage(),
                 'reviewed_id' => $reviewedId,
                 'reviewer_id' => $user['id'],
+            ]);
+        }
+
+        // Check and award badges
+        try {
+            $badgeService = new BadgeService();
+            
+            // Check Extrovert badges for reviewer (user who left the review)
+            $badgeService->checkAndAwardBadges($user['id'], 'review_left');
+            
+            // Check Popularity badges for reviewed user (user who received the review)
+            $badgeService->checkAndAwardBadges($reviewedId, 'review_received');
+        } catch (Exception $badgeEx) {
+            logApiError('Badge check failed', [
+                'error' => $badgeEx->getMessage(),
+                'reviewer_id' => $user['id'],
+                'reviewed_id' => $reviewedId,
             ]);
         }
         

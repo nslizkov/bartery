@@ -9,7 +9,7 @@ return [
         'charset' => 'utf8mb4',
     ],
     'fcm' => [
-        // Service account key file is used directly: src/bartery-1-firebase-adminsdk-fbsvc-20493bcfca.json
+        // Service account key file is used directly: src/bartery-1-c221eb75789a.json
         'project_id' => 'bartery-1',
     ],
     'app' => [

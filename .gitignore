@@ -3,5 +3,5 @@ vendor/
 logs/
 uploads/avatars/*
 !uploads/avatars/.gitkeep
-# Firebase service account keys (keep existing, ignore new ones)
-# src/bartery-1-firebase-adminsdk-fbsvc-20493bcfca.json
+# JSON files (config, credentials, etc.)
+*.json

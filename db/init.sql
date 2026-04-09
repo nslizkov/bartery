@@ -10,7 +10,7 @@ CREATE TABLE users (
     bio TEXT,
     avatar_url VARCHAR(500),
     role ENUM('user', 'admin') DEFAULT 'user',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP NULL,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     last_login TIMESTAMP NULL,
     is_active BOOLEAN DEFAULT TRUE,
@@ -102,10 +102,11 @@ CREATE TABLE video_calls (
 -- Значки
 CREATE TABLE badges (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL UNIQUE,
-    description TEXT,
+    name VARCHAR(100) NOT NULL,
     image_url VARCHAR(500),
-    criteria TEXT
+    criteria TEXT,
+    level TINYINT DEFAULT 1 CHECK (level >= 1 AND level <= 5),
+    UNIQUE KEY uk_name_level (name, level)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Значки пользователей
@@ -139,6 +140,47 @@ SET FOREIGN_KEY_CHECKS = 1;
 
 
 -- Значения по умолчанию
+-- ==========================
+-- Значки
+-- ==========================
+INSERT INTO badges (name, image_url, criteria, level) VALUES
+-- Популярность (received reviews)
+('Популярность', 'uploads/badges/ic_badge_popularity.png', '1 отзыв получен', 1),
+('Популярность', 'uploads/badges/ic_badge_popularity.png', '5 отзывов получено', 2),
+('Популярность', 'uploads/badges/ic_badge_popularity.png', '10 отзывов получено', 3),
+('Популярность', 'uploads/badges/ic_badge_popularity.png', '15 отзывов получено', 4),
+('Популярность', 'uploads/badges/ic_badge_popularity.png', '20+ отзывов получено', 5),
+-- Дисциплина (completed calls > 15 min)
+('Дисциплина', 'uploads/badges/ic_badge_discipline.png', '3 обмена совершено', 1),
+('Дисциплина', 'uploads/badges/ic_badge_discipline.png', '5 обменов совершено', 2),
+('Дисциплина', 'uploads/badges/ic_badge_discipline.png', '10 обменов совершено', 3),
+('Дисциплина', 'uploads/badges/ic_badge_discipline.png', '20 обменов совершено', 4),
+('Дисциплина', 'uploads/badges/ic_badge_discipline.png', '30 обменов совершено', 5),
+-- Старожил (days on platform)
+('Старожил', 'uploads/badges/ic_badge_oldtimer.png', '1 день на платформе', 1),
+('Старожил', 'uploads/badges/ic_badge_oldtimer.png', '10 дней на платформе', 2),
+('Старожил', 'uploads/badges/ic_badge_oldtimer.png', 'Месяц на платформе', 3),
+('Старожил', 'uploads/badges/ic_badge_oldtimer.png', '6 месяцев на платформе', 4),
+('Старожил', 'uploads/badges/ic_badge_oldtimer.png', 'Год на платформе', 5),
+-- Экстраверт (reviews left)
+('Экстраверт', 'uploads/badges/ic_badge_extrovert.png', '1 отзыв оставлен', 1),
+('Экстраверт', 'uploads/badges/ic_badge_extrovert.png', '5 отзывов оставлено', 2),
+('Экстраверт', 'uploads/badges/ic_badge_extrovert.png', '10 отзывов оставлено', 3),
+('Экстраверт', 'uploads/badges/ic_badge_extrovert.png', '15 отзывов оставлено', 4),
+('Экстраверт', 'uploads/badges/ic_badge_extrovert.png', '20 отзывов оставлено', 5),
+-- Студент (skills added, lvl 4-5 require both types)
+('Студент', 'uploads/badges/ic_badge_stuent.png', '1 навык добавлен', 1),
+('Студент', 'uploads/badges/ic_badge_stuent.png', '2 навыка добавлено', 2),
+('Студент', 'uploads/badges/ic_badge_stuent.png', '3 навыка добавлено', 3),
+('Студент', 'uploads/badges/ic_badge_stuent.png', '5 навыков добавлено (имеются оба типа)', 4),
+('Студент', 'uploads/badges/ic_badge_stuent.png', '7 навыков добавлено (имеются оба типа)', 5),
+-- Доверие (rating based, removable)
+('Доверие', 'uploads/badges/ic_badge_raiting.png', 'Рейтинг выше 4.5', 1),
+('Доверие', 'uploads/badges/ic_badge_raiting.png', 'Рейтинг выше 4.6', 2),
+('Доверие', 'uploads/badges/ic_badge_raiting.png', 'Рейтинг выше 4.7', 3),
+('Доверие', 'uploads/badges/ic_badge_raiting.png', 'Рейтинг выше 4.8', 4),
+('Доверие', 'uploads/badges/ic_badge_raiting.png', 'Рейтинг выше 4.9', 5);
+
 -- ==========================
 -- Категории
 -- ==========================
@@ -555,20 +597,20 @@ INSERT INTO skills (name, description, category_id, created_by) VALUES
 -- ==========================
 -- Пользователи по умолчанию (для отладки)
 -- ==========================
-INSERT INTO users (username, email, password_hash, full_name, bio, role, points, avatar_url)
+INSERT INTO users (username, email, password_hash, full_name, bio, role, points, avatar_url, created_at)
 VALUES
-('anna', 'anna@example.com', 'hashed_pass1', 'Анна Иванова', 'Обучаю языкам и программированию более 5 лет. Люблю делиться знаниями и помогать другим развиваться.', 'user', 50, '/uploads/avatars/1_1111111111.jpg'),
-('ivan', 'ivan@example.com', 'hashed_pass2', 'Иван Петров', 'Профессиональный музыкант и тренер по спорту. Обожаю гитару, пианино и активный образ жизни.', 'user', 40, '/uploads/avatars/2_1111111111.jpg'),
-('mari', 'mari@example.com', 'hashed_pass3', 'Мария Сидорова', 'Дизайнер с опытом работы в графическом дизайне и видеомонтаже. Создаю визуально привлекательный контент.', 'user', 60, '/uploads/avatars/3_1111111111.jpg'),
-('lex', 'lex@example.com', 'hashed_pass4', 'Алексей Кузнецов', 'Эксперт в области управления проектами и маркетинга. Помогаю бизнесам расти и достигать целей.', 'user', 70, '/uploads/avatars/4_1111111111.jpg'),
-('elen', 'ele@example.com', 'hashed_pass5', 'Елена Смирнова', 'Психолог и коуч. Специализируюсь на эмоциональном интеллекте и мотивации. Также увлекаюсь кулинарией.', 'user', 30, '/uploads/avatars/5_1111111111.jpg'),
-('sergey', 'sergey@example.com', 'hashed_pass6', 'Сергей Волков', 'Фотограф-путешественник. Специализируюсь на пейзажной и уличной фотографии. Обожаю делиться красотой мира.', 'user', 45, '/uploads/avatars/6_1111111111.jpg'),
-('olga', 'olga@example.com', 'hashed_pass7', 'Ольга Морозова', 'IT-специалист с опытом в кибербезопасности. Помогаю защищать данные и обучаю основам информационной безопасности.', 'user', 55, '/uploads/avatars/7_1111111111.jpg'),
-('dmitry', 'dmitry@example.com', 'hashed_pass8', 'Дмитрий Соколов', 'Энтузиаст технологий. Увлекаюсь робототехникой, электроникой и умным домом. Люблю создавать полезные устройства.', 'user', 35, '/uploads/avatars/8_1111111111.jpg'),
-('tatyana', 'tatyana@example.com', 'hashed_pass9', 'Татьяна Новикова', 'Юрист по образованию, занимаюсь правовым консультированием. Обожаю помогать людям разбираться в законах и документах.', 'user', 40, '/uploads/avatars/9_1111111111.jpg'),
-('nikolay', 'nikolay@example.com', 'hashed_pass10', 'Николай Федоров', 'Экономист и инвестор. Специализируюсь на личных финансах, инвестициях и криптовалютах. Помогаю оптимизировать бюджет.', 'user', 50, '/uploads/avatars/10_1111111111.jpg'),
-('yulia', 'yulia@example.com', 'hashed_pass11', 'Юлия Белова', 'Фитнес-тренер и нутрициолог. Помогаю достигать спортивных целей через правильное питание и тренировки. Увлекаюсь йогой и здоровым образом жизни.', 'user', 65, '/uploads/avatars/11_1111111111.jpg'),
-('artem', 'artem@example.com', 'hashed_pass12', 'Артем Крылов', 'Разработчик игр и геймдизайнер. Создаю увлекательные игровые миры и механики. Люблю делиться знаниями о геймдеве и творчестве.', 'user', 55, '/uploads/avatars/12_1111111111.jpg');
+('anna', 'anna@example.com', 'hashed_pass1', 'Анна Иванова', 'Обучаю языкам и программированию более 5 лет. Люблю делиться знаниями и помогать другим развиваться.', 'user', 50, '/uploads/avatars/1_1111111111.jpg', '2026-02-01 10:00:00'),
+('ivan', 'ivan@example.com', 'hashed_pass2', 'Иван Петров', 'Профессиональный музыкант и тренер по спорту. Обожаю гитару, пианино и активный образ жизни.', 'user', 40, '/uploads/avatars/2_1111111111.jpg', '2026-02-15 11:00:00'),
+('mari', 'mari@example.com', 'hashed_pass3', 'Мария Сидорова', 'Дизайнер с опытом работы в графическом дизайне и видеомонтаже. Создаю визуально привлекательный контент.', 'user', 60, '/uploads/avatars/3_1111111111.jpg', '2026-03-01 09:00:00'),
+('lex', 'lex@example.com', 'hashed_pass4', 'Алексей Кузнецов', 'Эксперт в области управления проектами и маркетингом. Помогаю бизнесам расти и достигать целей.', 'user', 70, '/uploads/avatars/4_1111111111.jpg', '2026-03-20 14:00:00'),
+('elen', 'ele@example.com', 'hashed_pass5', 'Елена Смирнова', 'Психолог и коуч. Специализируюсь на эмоциональном интеллекте и мотивации. Также увлекаюсь кулинарией.', 'user', 30, '/uploads/avatars/5_1111111111.jpg', '2026-02-20 08:00:00'),
+('sergey', 'sergey@example.com', 'hashed_pass6', 'Сергей Волков', 'Фотограф-путешественник. Специализируюсь на пейзажной и уличной фотографии. Обожаю делиться красотой мира.', 'user', 45, '/uploads/avatars/6_1111111111.jpg', '2026-03-10 12:00:00'),
+('olga', 'olga@example.com', 'hashed_pass7', 'Ольга Морозова', 'IT-специалист с опытом в кибербезопасности. Помогаю защищать данные и обучаю основам информационной безопасности.', 'user', 55, '/uploads/avatars/7_1111111111.jpg', '2026-02-25 15:00:00'),
+('dmitry', 'dmitry@example.com', 'hashed_pass8', 'Дмитрий Соколов', 'Энтузиаст технологий. Увлекаюсь робототехникой, электроникой и умным домом. Люблю создавать полезные устройства.', 'user', 35, '/uploads/avatars/8_1111111111.jpg', '2026-03-05 10:00:00'),
+('tatyana', 'tatyana@example.com', 'hashed_pass9', 'Татьяна Новикова', 'Юрист по образованию, занимаюсь правовым консультированием. Обожаю помогать людям разбираться в законах и документах.', 'user', 40, '/uploads/avatars/9_1111111111.jpg', '2026-02-10 09:00:00'),
+('nikolay', 'nikolay@example.com', 'hashed_pass10', 'Николай Федоров', 'Экономист и инвестор. Специализируюсь на личных финансах, инвестициях и криптовалютах. Помогаю оптимизировать бюджет.', 'user', 50, '/uploads/avatars/10_1111111111.jpg', '2026-03-25 11:00:00'),
+('yulia', 'yulia@example.com', 'hashed_pass11', 'Юлия Белова', 'Фитнес-тренер и нутрициолог. Помогаю достигать спортивных целей через правильное питание и тренировки. Увлекаюсь йогой и здоровым образом жизни.', 'user', 65, '/uploads/avatars/11_1111111111.jpg', '2026-02-28 13:00:00'),
+('artem', 'artem@example.com', 'hashed_pass12', 'Артем Крылов', 'Разработчик игр и геймдизайнер. Создаю увлекательные игровые миры и механики. Люблю делиться знаниями о геймдеве и творчестве.', 'user', 55, '/uploads/avatars/12_1111111111.jpg', '2026-03-30 10:00:00');
 
 -- ==========================
 -- Навыки пользователей
@@ -625,6 +667,94 @@ INSERT INTO user_skills (user_id, skill_id, type, proficiency_level, description
 (12, 222, 'teach', 4, 'Профессиональный геймдизайнер. Разрабатываю концепции, прототипы, документацию. Учу проектированию увлекательного геймплея.'),
 (12, 10, 'learn', 3, 'Хочу улучшить навыки программирования на JavaScript для создания веб-игр и интерактивных проектов.'),
 (12, 8, 'learn', 2, 'Интересуюсь Python для разработки инструментов и скриптов, которые упрощают процесс создания игр.');
+
+-- ==========================
+-- Награды пользователей (user_badges)
+-- ==========================
+INSERT INTO user_badges (user_id, badge_id) VALUES
+-- User 1 (anna) - created: 2026-02-01 (66 days ago)
+-- Popularity: 10 reviews -> level 3 (id: 3)
+-- Extrovert: 9 reviews left -> level 2 (id: 17)
+-- Discipline: 5 completed calls -> level 2 (id: 7)
+-- Student: 4 skills -> level 3 (id: 23)
+-- Oldtimer: 66 days -> level 2 (id: 12)
+(1, 3), (1, 17), (1, 7), (1, 23), (1, 12),
+-- User 2 (ivan) - created: 2026-02-15 (52 days ago)
+-- Popularity: 6 reviews -> level 2 (id: 2)
+-- Extrovert: 6 reviews left -> level 2 (id: 17)
+-- Discipline: 7 completed calls -> level 2 (id: 7)
+-- Student: 4 skills -> level 3 (id: 23)
+-- Oldtimer: 52 days -> level 2 (id: 12)
+(2, 2), (2, 17), (2, 7), (2, 23), (2, 12),
+-- User 3 (mari) - created: 2026-03-01 (38 days ago)
+-- Popularity: 6 reviews -> level 2 (id: 2)
+-- Extrovert: 6 reviews left -> level 2 (id: 17)
+-- Discipline: 6 completed calls -> level 2 (id: 7)
+-- Student: 4 skills -> level 3 (id: 23)
+-- Trust: avg 4.67 -> level 2 (id: 27)
+-- Oldtimer: 38 days -> level 2 (id: 12)
+(3, 2), (3, 17), (3, 7), (3, 23), (3, 27), (3, 12),
+-- User 4 (lex) - created: 2026-03-20 (19 days ago)
+-- Popularity: 6 reviews -> level 2 (id: 2)
+-- Extrovert: 6 reviews left -> level 2 (id: 17)
+-- Discipline: 7 completed calls -> level 2 (id: 7)
+-- Student: 4 skills -> level 3 (id: 23)
+-- Trust: avg 4.6 -> level 2 (id: 27)
+-- Oldtimer: 19 days -> level 1 (id: 11)
+(4, 2), (4, 17), (4, 7), (4, 23), (4, 27), (4, 11),
+-- User 5 (elen) - created: 2026-02-20 (47 days ago)
+-- Popularity: 9 reviews -> level 2 (id: 2)
+-- Extrovert: 9 reviews left -> level 2 (id: 17)
+-- Discipline: 6 completed calls -> level 2 (id: 7)
+-- Student: 4 skills -> level 3 (id: 23)
+-- Oldtimer: 47 days -> level 2 (id: 12)
+(5, 2), (5, 17), (5, 7), (5, 23), (5, 12),
+-- User 6 (sergey) - created: 2026-03-10 (29 days ago)
+-- Popularity: 11 reviews -> level 3 (id: 3)
+-- Extrovert: 11 reviews left -> level 3 (id: 18)
+-- Student: 19 skills -> level 5 (id: 25)
+-- Trust: avg 4.73 -> level 3 (id: 28)
+-- Oldtimer: 29 days -> level 2 (id: 12)
+(6, 3), (6, 18), (6, 25), (6, 28), (6, 12),
+-- User 7 (olga) - created: 2026-02-25 (42 days ago)
+-- Popularity: 7 reviews -> level 2 (id: 2)
+-- Extrovert: 7 reviews left -> level 2 (id: 17)
+-- Trust: avg 4.86 -> level 4 (id: 29)
+-- Oldtimer: 42 days -> level 2 (id: 12)
+(7, 2), (7, 17), (7, 29), (7, 12),
+-- User 8 (dmitry) - created: 2026-03-05 (34 days ago)
+-- Popularity: 11 reviews -> level 3 (id: 3)
+-- Extrovert: 11 reviews left -> level 3 (id: 18)
+-- Oldtimer: 34 days -> level 2 (id: 12)
+(8, 3), (8, 18), (8, 12),
+-- User 9 (tatyana) - created: 2026-02-10 (57 days ago)
+-- Popularity: 9 reviews -> level 2 (id: 2)
+-- Extrovert: 9 reviews left -> level 2 (id: 17)
+-- Trust: avg 4.56 -> level 1 (id: 26)
+-- Oldtimer: 57 days -> level 2 (id: 12)
+(9, 2), (9, 17), (9, 26), (9, 12),
+-- User 10 (nikolay) - created: 2026-03-25 (14 days ago)
+-- Popularity: 9 reviews -> level 2 (id: 2)
+-- Extrovert: 9 reviews left -> level 2 (id: 17)
+-- Trust: avg 4.60 -> level 1 (id: 26)
+-- Oldtimer: 14 days -> level 1 (id: 11)
+(10, 2), (10, 17), (10, 26), (10, 11),
+-- User 11 (yulia) - created: 2026-02-28 (39 days ago)
+-- Popularity: 9 reviews -> level 2 (id: 2)
+-- Extrovert: 9 reviews left -> level 2 (id: 17)
+-- Discipline: 5 completed calls -> level 2 (id: 7)
+-- Student: 5 skills, both types -> level 4 (id: 24)
+-- Trust: avg 4.56 -> level 1 (id: 26)
+-- Oldtimer: 39 days -> level 2 (id: 12)
+(11, 2), (11, 17), (11, 7), (11, 24), (11, 26), (11, 12),
+-- User 12 (artem) - created: 2026-03-30 (9 days ago)
+-- Popularity: 11 reviews -> level 3 (id: 3)
+-- Extrovert: 11 reviews left -> level 3 (id: 18)
+-- Discipline: 8 completed calls -> level 2 (id: 7)
+-- Student: 6 skills, both types -> level 4 (id: 24)
+-- Trust: avg 4.55 -> level 1 (id: 26)
+-- Oldtimer: 9 days -> level 1 (id: 11)
+(12, 3), (12, 18), (12, 7), (12, 24), (12, 26), (12, 11);
 
 -- ==========================
 -- Отзывы пользователей

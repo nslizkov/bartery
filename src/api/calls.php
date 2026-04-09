@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/../helpers.php';
 require_once __DIR__ . '/../PushNotification.php';
+require_once __DIR__ . '/../BadgeService.php';
 
 $user = requireAuth();
 
@@ -364,6 +365,21 @@ if ($sub === 'end' && $method === 'POST') {
     // Update call
     $stmt = $db->prepare('UPDATE video_calls SET status = ?, ended_at = ?, duration = ? WHERE id = ?');
     $stmt->execute(['completed', $endedAt, $duration, $callId]);
+
+    // Check and award Discipline badges for both users (only if duration > 15 min)
+    if ($duration > 900) {
+        try {
+            $badgeService = new BadgeService();
+            $badgeService->checkAndAwardBadges($call['caller_id'], 'call_completed', ['duration' => $duration]);
+            $badgeService->checkAndAwardBadges($call['callee_id'], 'call_completed', ['duration' => $duration]);
+        } catch (Exception $badgeEx) {
+            logApiError('Badge check failed (discipline)', [
+                'error' => $badgeEx->getMessage(),
+                'caller_id' => $call['caller_id'],
+                'callee_id' => $call['callee_id'],
+            ]);
+        }
+    }
 
     // Get updated call
     $stmt = $db->prepare('SELECT * FROM video_calls WHERE id = ?');

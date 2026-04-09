@@ -13,7 +13,7 @@ class PushNotification
     private function __construct()
     {
         $this->config = require __DIR__ . '/config.php';
-        $this->serviceAccountPath = __DIR__ . '/bartery-1-firebase-adminsdk-fbsvc-20493bcfca.json';
+        $this->serviceAccountPath = __DIR__ . '/bartery-1-firebase-adminsdk-fbsvc-9ddb99386a.json';
         $this->logFile = __DIR__ . '/../logs/push_errors.log';
         $this->fcmLogFile = __DIR__ . '/../logs/fcm_notifications.log';
         
